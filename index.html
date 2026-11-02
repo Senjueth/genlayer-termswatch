@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TermsWatch</title><meta name="description" content="A public record of whether a privacy policy or terms page still says what its users were promised. Validators read the page and agree, promise by promise."><meta name="theme-color" content="#4C2A85">
+<link rel="icon" href="data:image/svg+xml,<svg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'><rect width='512' height='512' fill='%234C2A85'/><path d='M150 100h170l70 70v240H150z' fill='%23fff'/><path d='M195 210h150M195 260h150M195 310h90' stroke='%234C2A85' stroke-width='22' stroke-linecap='round'/><circle cx='370' cy='370' r='72' fill='%23F5A524'/><circle cx='370' cy='370' r='30' fill='none' stroke='%234C2A85' stroke-width='18'/><circle cx='370' cy='370' r='10' fill='%234C2A85'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="app.css">
+<style>:root{--acc:#4C2A85;--soft:#EFEAF8}ol.promises{margin:0;padding-left:20px}ol.promises li{padding:6px 0}</style>
+</head><body>
+<header class="hero"><div class="w">
+  <div class="top"><div class="brand"><svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" fill="#4C2A85"/><path d="M150 100h170l70 70v240H150z" fill="#fff"/><path d="M195 210h150M195 260h150M195 310h90" stroke="#4C2A85" stroke-width="22" stroke-linecap="round"/><circle cx="370" cy="370" r="72" fill="#F5A524"/><circle cx="370" cy="370" r="30" fill="none" stroke="#4C2A85" stroke-width="18"/><circle cx="370" cy="370" r="10" fill="#4C2A85"/></svg>TermsWatch</div><button id="connect" class="ghost" type="button">Connect wallet</button></div>
+  <h1>They promised. <em>Do the terms still say so?</em></h1>
+  <p>Pin a privacy policy or terms page and the promises it makes. Anyone can recheck it: validators read the page and agree, promise by promise, whether it was kept, weakened or dropped. The history stays on-chain.</p>
+  <div class="pills"><a href="https://scan.testnet-chain.genlayer.com/address/0xb79E24E7014b8b8d070F122604876948fd3e6152">contract 0xb79E…6152 ↗</a><span>testnet bradbury</span><a href="https://github.com/Senjueth/genlayer-termswatch">source ↗</a></div>
+</div></header>
+<div class="steps w"><ol>
+  <li><small>01</small><b>Watch</b><p>A policy URL and up to 8 promises in plain words. Validators must agree the page states every one; its text hash is pinned.</p></li>
+  <li><small>02</small><b>Recheck</b><p>Anyone, any time. Same text hash: unchanged, decided in code. New text: validators judge every promise again.</p></li>
+  <li><small>03</small><b>Record</b><p>Held or broken, with each check's text hash and per-promise result kept as history.</p></li>
+</ol></div>
+<main class="w">
+  <p id="status" class="status" hidden></p>
+  <div class="grid">
+    <div>
+      <section>
+        <h2>Watches</h2>
+        <div class="tbl"><table>
+          <thead><tr><th>#</th><th>Policy</th><th>Promises</th><th>Status</th><th>Checked</th></tr></thead>
+          <tbody id="watches"><tr><td colspan="5" class="empty">Reading the contract…</td></tr></tbody>
+        </table></div>
+      </section>
+      <section id="detail" hidden></section>
+    </div>
+
+    <aside>
+      <section>
+        <h2>Watch a policy</h2>
+        <form id="watch">
+          <label>Name<input name="name" maxlength="80" required></label>
+          <label>Policy page (https, text up to 20,000 characters)<input name="url" type="url" required></label>
+          <label>Promises, one per line (1–8, 10–200 characters each)<textarea name="promises" required></textarea></label>
+          <p class="hint" id="problem"></p>
+          <button type="submit" id="submit" disabled>Watch</button>
+        </form>
+      </section>
+      <section>
+        <h2>How a check is judged</h2>
+        <dl class="kv">
+          <div><dt>Validators read</dt><dd>the page live, its visible text hashed</dd></div>
+          <div><dt>Same hash</dt><dd>unchanged: no model, every promise stands</dd></div>
+          <div><dt>New hash</dt><dd>kept, weakened or dropped, per promise; validators must agree on all</dd></div>
+          <div><dt>Broken</dt><dd>the latest check found any promise weakened or dropped</dd></div>
+          <div><dt>Never judged</dt><dd>an unreachable page or one over 20,000 characters: the call reverts</dd></div>
+        </dl>
+      </section>
+    </aside>
+  </div>
+</main>
+<footer><div class="w"><a href="https://github.com/Senjueth/genlayer-termswatch">GitHub</a><a href="https://github.com/Senjueth/genlayer-termswatch#bradbury-evidence">Bradbury evidence</a><a href="demo/policy.html">Demo policy</a></div></footer>
+
+<script type="module">
+import { contract, wireWallet, send, status, esc, short, ago, $, EXPLORER } from "./gl.js";
+const tw = contract("0xb79E24E7014b8b8d070F122604876948fd3e6152");
+let me = null, watches = [];
+const TAG = { HELD: "ok", BROKEN: "bad", kept: "ok", weakened: "on", dropped: "bad", BASELINE: "", UNCHANGED: "", CHANGED: "on" };
+
+// Mirrors the contract's input checks, so Watch is only enabled for a call it would accept.
+const URL_RE = /^https:\/\/[A-Za-z0-9.-]+\.[A-Za-z]{2,}(:\d+)?(\/\S*)?$/;
+const promisesOf = (text) => text.split("\n").map((l) => l.split(/\s+/).join(" ").trim()).filter(Boolean);
+function problem(f) {
+  const name = f.name.split(/\s+/).join(" ").trim(), items = promisesOf(f.promises);
+  if (!me) return "Connect a wallet to watch or recheck; reading works without one.";
+  if (name.length < 2 || name.length > 80) return "The name must be 2–80 characters.";
+  if (f.url.trim().length > 500 || !URL_RE.test(f.url.trim())) return "The page must be an https URL with a domain name.";
+  if (items.length < 1 || items.length > 8) return "Give 1–8 promises, one per line.";
+  if (items.some((c) => c.length < 10 || c.length > 200)) return "Each promise must be 10–200 characters.";
+  if (new Set(items.map((c) => c.toLowerCase())).size !== items.length) return "Promises must be distinct.";
+  return "";
+}
+// Recheck is open to anyone with a wallet, on any existing watch.
+function actions(w) {
+  if (!me) return `<p class="hint" style="margin-top:16px">Connect a wallet to recheck. Anyone can recheck any watch.</p>`;
+  return `<div style="margin-top:16px"><button data-act="recheck" data-id="${w.id}">Recheck now</button></div>`;
+}
+
+const fields = () => Object.fromEntries(new FormData($("#watch")));
+function refresh() {
+  const p = problem(fields());
+  $("#problem").textContent = p;
+  $("#submit").disabled = !!p;
+}
+
+async function show(id) {
+  const w = watches.find((x) => x.id === id) ?? await tw.read("get_watch", [id]);
+  const h = await tw.read("get_history", [id, 0]);
+  const d = $("#detail");
+  d.hidden = false;
+  d.innerHTML = `<h2>${esc(w.name)} <span class="tag ${TAG[w.status]}">${w.status.toLowerCase()}</span></h2>
+    <p style="margin:0"><a href="${esc(w.url)}">${esc(w.url)}</a></p>
+    <ol class="promises" style="margin-top:12px">${w.commitments.map((c, i) => `<li>${esc(c)} <span class="tag ${TAG[w.states[i]]}">${w.states[i]}</span></li>`).join("")}</ol>
+    <dl class="kv" style="margin-top:12px">
+      <div><dt>Text sha256</dt><dd class="mono">${esc(w.text_sha256)}</dd></div>
+      <div><dt>Watched by</dt><dd><a class="mono" href="${EXPLORER}/address/${esc(w.creator)}">${short(w.creator)}</a> · ${ago(w.opened_at)}</dd></div>
+      <div><dt>Text last changed</dt><dd>${ago(w.changed_at)} · ${w.checks} check${w.checks > 1 ? "s" : ""}, last ${ago(w.last_checked_at)}</dd></div>
+    </dl>
+    ${actions(w)}
+    <h2 style="margin-top:20px">History</h2>
+    <div class="tbl"><table><thead><tr><th>#</th><th>Outcome</th><th>Promises</th><th>Text sha256</th><th>By</th><th>When</th></tr></thead><tbody>
+    ${h.slice().reverse().map((c) => `<tr><td class="num mut">${c.index}</td><td><span class="tag ${TAG[c.outcome]}">${c.outcome.toLowerCase()}</span></td>
+      <td>${c.states.map((s) => `<span class="tag ${TAG[s]}">${s}</span>`).join(" ")}</td><td class="mono">${esc(c.text_sha256.slice(0, 12))}…</td>
+      <td><a class="mono" href="${EXPLORER}/address/${esc(c.by)}">${short(c.by)}</a></td><td>${ago(c.at)}</td></tr>`).join("")}
+    </tbody></table></div>`;
+  history.replaceState(null, "", `#watch-${id}`);
+}
+
+async function load(openId) {
+  try {
+    const n = await tw.read("get_count");
+    watches = [];
+    for (let s = 0; s < n; s += 50) watches.push(...await tw.read("get_watches", [s]));
+    $("#watches").innerHTML = watches.length ? watches.slice().reverse().map((w) => `<tr style="cursor:pointer" data-id="${w.id}"><td class="num mut">${w.id}</td>
+      <td>${esc(w.name)}<br><span class="mut">${esc(new URL(w.url).host)}</span></td><td class="num">${w.commitments.length}</td>
+      <td><span class="tag ${TAG[w.status]}">${w.status.toLowerCase()}</span></td><td>${ago(w.last_checked_at)}</td></tr>`).join("")
+      : `<tr><td colspan="5" class="empty">No watches yet.</td></tr>`;
+    const m = location.hash.match(/^#watch-(\d+)$/), id = openId ?? (m ? Number(m[1]) : watches.at(-1)?.id);
+    if (Number.isInteger(id) && id < n) await show(id);
+  } catch (e) {
+    $("#watches").innerHTML = `<tr><td colspan="5" class="empty">Could not read the contract: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+$("#watches").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) show(Number(tr.dataset.id)); });
+$("#detail").addEventListener("click", async (e) => {
+  const b = e.target.closest('[data-act="recheck"]');
+  if (!b) return;
+  b.disabled = true;
+  const id = Number(b.dataset.id);
+  if (await send(tw, "Recheck", "recheck", [id])) await load(id);
+  else b.disabled = false;
+});
+$("#watch").addEventListener("input", refresh);
+$("#watch").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = fields();
+  if (problem(f)) return refresh();
+  $("#submit").disabled = true;
+  if (await send(tw, "Watch", "watch", [f.name, f.url.trim(), JSON.stringify(promisesOf(f.promises))])) await load((await tw.read("get_count")) - 1);
+  refresh();
+});
+wireWallet((a) => { me = a; refresh(); load(); });
+refresh();
+load();
+</script>
+</body></html>
