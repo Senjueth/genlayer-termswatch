@@ -50,7 +50,7 @@ const check = (ok, what) => {
   console.log(ok ? "  ok  " : "  FAIL", what);
   if (!ok) process.exit(1);
 };
-let address;
+let address, w;
 // A leader timeout (NOT_VOTED) executed nothing, so sending the call again is safe.
 async function tx(c, label, functionName, args) {
   for (let i = 0; ; i++) {
@@ -85,7 +85,7 @@ await fails(c1, "watch a promise the page does not make", "watch", ["Plausible",
 // The real policy: baseline, then an unchanged recheck by someone else.
 const real = await read("get_count");
 await ok(c0, "watch plausible.io/privacy", "watch", ["Plausible Analytics privacy policy", REAL, JSON.stringify(REAL_PROMISES)]);
-let w = await read("get_watch", [real]);
+w = await read("get_watch", [real]);
 show(w);
 check(w.status === "HELD" && w.states.every((s) => s === "kept"), "baseline: every commitment kept");
 await ok(c1, "recheck plausible.io/privacy", "recheck", [real]);

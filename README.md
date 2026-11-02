@@ -38,7 +38,12 @@ Real policy ([plausible.io/privacy](https://plausible.io/privacy)):
 | recheck watch 0 (other account) | [`0xa9a27dec…`](https://scan.testnet-chain.genlayer.com/tx/0xa9a27dece8241c3502619a86a0ade00960ac6dfbeaa71f42061b907f990dd7de) | **UNCHANGED**: same text hash, decided in code |
 | recheck watch 100 | [`0x714688ae…`](https://scan.testnet-chain.genlayer.com/tx/0x714688aef24821583ef56a09a5bc30dd718c488dee97fe191fa4a0de94a65105) | reverted: watch not found |
 
-__DEMO__
+Changed policy ([termswatch.senju.quest/demo/policy.html](https://termswatch.senju.quest/demo/policy.html), the fictional Acme Cloud terms in [`demo/`](demo/)): watched at version 1, then version 2 was published on gh-pages and rechecked.
+
+| Step | Transaction | Outcome |
+|---|---|---|
+| watch v1: “We never sell or rent your personal data”, “Refunds within 30 days of purchase, no questions asked”, “You can export all your data at any time” | [`0x58529b24…`](https://scan.testnet-chain.genlayer.com/tx/0x58529b241f122a17c81aa521fb10dd5cf2b8ac69e9544b1bb39ee498027d4a42) | watch 1 **HELD**, all kept; text sha256 `dbf36d23f5d3…`. Resent after a leader timeout ([`0x072e4d13…`](https://scan.testnet-chain.genlayer.com/tx/0x072e4d13caf64e3f53de66f1e6adc3dc06673a4f5c58a3785b72083d85d3f3b6), NOT_VOTED) |
+| recheck after v2 replaced v1 (other account) | [`0x36b503ce…`](https://scan.testnet-chain.genlayer.com/tx/0x36b503ce605674bf3fc7bbe52549550bfc1390793469bfa30a63adb554146529) | **BROKEN**: data sale **dropped**, refunds **weakened** (14 days, at our discretion), export kept; text sha256 `b3d6264d84c9…`; history BASELINE, CHANGED. Resent after a leader timeout ([`0x065f69f5…`](https://scan.testnet-chain.genlayer.com/tx/0x065f69f5987c80b6a06c4ad0f05a5e4fafeb29b307e6cebf2fd7f8d52e7c2ea1), NOT_VOTED) |
 
 ## What it does
 
